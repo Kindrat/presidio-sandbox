@@ -1,0 +1,42 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.10'
+    }
+}
+
+apply plugin: "com.google.protobuf"
+
+def pbVersion = "3.6.1"
+def grpcVersion = "1.24.0"
+
+dependencies {
+    implementation("com.google.protobuf:protobuf-java:$pbVersion")
+    implementation("io.grpc:grpc-netty-shaded:${grpcVersion}")
+    implementation( "io.grpc:grpc-protobuf:${grpcVersion}")
+    implementation( "io.grpc:grpc-stub:${grpcVersion}")
+
+    if (JavaVersion.current().isJava9Compatible()) {
+        // Workaround for @javax.annotation.Generated
+        // see: https://github.com/grpc/grpc-java/issues/3633
+        compile "javax.annotation:javax.annotation-api:1.3.1"
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${pbVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}

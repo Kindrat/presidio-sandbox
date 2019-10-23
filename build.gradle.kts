@@ -1,20 +1,28 @@
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
-import com.google.protobuf.gradle.ExecutableLocator
 import de.undercouch.gradle.tasks.download.Download
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    `kotlin-dsl`
     base
+    idea
+    id("org.springframework.boot") version "2.1.8.RELEASE"
     id("com.avast.gradle.docker-compose") version "0.9.5"
     id("com.bmuschko.docker-remote-api") version "4.10.0"
     id("de.undercouch.download") version "3.4.3"
     id("org.unbroken-dome.test-sets") version "2.1.1"
     id("com.google.protobuf") version "0.8.10"
+
+    val kotlinVersion = "1.3.50"
+    kotlin("jvm") version kotlinVersion
+    kotlin("kapt") version kotlinVersion
+    kotlin("plugin.spring") version kotlinVersion
+
 }
+
+apply(from = "gradle/grpc.gradle")
 
 val dockerImageName = project.name
 val dockerImageVersion = project.version
@@ -22,14 +30,14 @@ val dockerComposeCacheDir = "$rootDir/.gradle/docker-compose/"
 val dockerComposeVersion: String by extra
 val dockerComposeScript = "$dockerComposeCacheDir/$dockerComposeVersion/docker-compose.sh"
 val isOsLinux = System.getProperty("os.name").toLowerCase().contains("linux")
-val dockerComposeCommand = if (isOsLinux && project.hasProperty("dockerComposeVersion")) dockerComposeScript else "docker-compose"
-val pbVersion = "3.6.1"
+val dockerComposeCommand =
+    if (isOsLinux && project.hasProperty("dockerComposeVersion")) dockerComposeScript else "docker-compose"
 val dockerfileProperties = mapOf(
-        "project.name" to project.name,
-        "project.version" to project.version
+    "project.name" to project.name,
+    "project.version" to project.version
 )
 val composeProperties = mapOf(
-        "version" to project.version
+    "version" to project.version
 )
 
 testSets {
@@ -51,13 +59,6 @@ docker {
     }
 }
 
-protobuf {
-    this.protobuf.protoc(closureOf<ExecutableLocator> {
-        artifact = "com.google.protobuf:protoc:$pbVersion"
-    })
-}
-
-
 repositories {
     jcenter()
 }
@@ -74,16 +75,15 @@ dockerCompose {
     removeContainers = true
 }
 
-val functionalTestImplementation: Configuration by configurations.getting
-
 dependencies {
-    implementation("com.google.protobuf:protobuf-java:$pbVersion")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("io.github.microutils:kotlin-logging:1.7.6")
+    implementation("ch.qos.logback:logback-classic:1.2.3")
+    implementation("org.slf4j:slf4j-api:1.7.28")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.5.2")
-
-    functionalTestImplementation("ch.qos.logback:logback-core:1.2.3")
 }
 
 tasks {
@@ -96,7 +96,8 @@ tasks {
         group = "build setup"
 
         val composeVersion = project.findProperty("dockerComposeVersion")
-        val composeSrc = "https://github.com/docker/compose/releases/download/$composeVersion/docker-compose-linux-x86_64"
+        val composeSrc =
+            "https://github.com/docker/compose/releases/download/$composeVersion/docker-compose-linux-x86_64"
 
         inputs.property("composeVersion", composeVersion)
         overwrite(false)
@@ -151,6 +152,16 @@ tasks {
             jvmTarget = "1.8"
             freeCompilerArgs = listOf("-Xjsr305=strict")
         }
+    }
+
+    jar {
+        manifest {
+            attributes["Main-Class"] = "com.github.kindrat.presidio.PresidioSandboxKt"
+        }
+    }
+
+    bootJar {
+        archiveClassifier.set("exec")
     }
 
     val functionalTest = "functionalTest"(Test::class) {
