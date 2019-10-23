@@ -1,5 +1,6 @@
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.google.protobuf.gradle.ProtobufExtract
 import de.undercouch.gradle.tasks.download.Download
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
@@ -27,6 +28,7 @@ apply(from = "gradle/grpc.gradle")
 val dockerImageName = project.name
 val dockerImageVersion = project.version
 val dockerComposeCacheDir = "$rootDir/.gradle/docker-compose/"
+val presidioCacheDir = "$rootDir/.gradle/presidio/"
 val dockerComposeVersion: String by extra
 val dockerComposeScript = "$dockerComposeCacheDir/$dockerComposeVersion/docker-compose.sh"
 val isOsLinux = System.getProperty("os.name").toLowerCase().contains("linux")
@@ -110,6 +112,29 @@ tasks {
         doLast { file(dockerComposeScript).setExecutable(true) }
     }
 
+    val downloadPresidioProtos by creating(Download::class) {
+        group = "build setup"
+        overwrite(false)
+        src("https://github.com/microsoft/presidio-genproto/archive/master.zip")
+        dest("$presidioCacheDir/presidio.zip")
+        doFirst { delete(presidioCacheDir) }
+    }
+
+    val extractPresidioProtos by creating(Copy::class) {
+        group = "build setup"
+        dependsOn(downloadPresidioProtos)
+        from(zipTree(downloadPresidioProtos.outputs.files.singleFile).files) {
+            include("*.proto")
+            // very dirty hack to fix compilation of MS broken protos
+            filter<ReplaceTokens>(
+                "tokens" to mapOf("allFields" to " allFieldsLocal "),
+                "beginToken" to " ",
+                "endToken" to " "
+            )
+        }
+        into("$buildDir/extracted-protos/main/")
+    }
+
     val copyDockerComposeResources by creating(Sync::class) {
         group = "docker"
         dependsOn(downloadDockerCompose)
@@ -141,6 +166,10 @@ tasks {
         dependsOn(copyDockerResources)
         inputDir.set(copyDockerResources.destinationDir)
         tags.add("$dockerImageName:$dockerImageVersion")
+    }
+
+    withType<ProtobufExtract> {
+        dependsOn(extractPresidioProtos)
     }
 
     withType<ComposeUp> {

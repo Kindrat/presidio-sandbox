@@ -9,7 +9,7 @@ buildscript {
 
 apply plugin: "com.google.protobuf"
 
-def pbVersion = "3.6.1"
+def pbVersion = "3.10.0"
 def grpcVersion = "1.24.0"
 
 dependencies {
