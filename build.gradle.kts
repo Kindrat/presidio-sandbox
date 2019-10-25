@@ -1,3 +1,4 @@
+import com.avast.gradle.dockercompose.tasks.ComposeDown
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 import com.google.protobuf.gradle.ProtobufExtract
@@ -67,7 +68,7 @@ repositories {
 
 dockerCompose {
     dockerComposeWorkingDirectory = "$buildDir/docker-compose"
-    captureContainersOutputToFile = file("$buildDir/docker-compose/compose.log")
+    captureContainersOutput = true
     useComposeFiles = listOf("docker-compose.yml")
     projectName = "proxy"
     executable = dockerComposeCommand
@@ -82,6 +83,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:1.7.6")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.slf4j:slf4j-api:1.7.28")
+    implementation("io.projectreactor:reactor-core:3.3.0.RELEASE")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
@@ -155,8 +157,8 @@ tasks {
             filter<ReplaceTokens>("tokens" to dockerfileProperties)
         }
         from("$buildDir/libs") {
-            include("${project.name}-${project.version}.jar")
-            rename("${project.name}-${project.version}.jar", "${project.name}.jar")
+            include("${project.name}-${project.version}-exec.jar")
+            rename("${project.name}-${project.version}-exec.jar", "${project.name}.jar")
         }
         into("$buildDir/docker")
     }
@@ -193,13 +195,18 @@ tasks {
         archiveClassifier.set("exec")
     }
 
+    val composeUp by getting(ComposeUp::class)
+    val composeDown by getting(ComposeDown::class)
+
     val functionalTest = "functionalTest"(Test::class) {
+        dependsOn(composeUp)
         useJUnitPlatform()
         testLogging {
             showStackTraces = true
             showStandardStreams = true
             exceptionFormat = TestExceptionFormat.FULL
         }
+        finalizedBy(composeDown)
     }
 
     check {

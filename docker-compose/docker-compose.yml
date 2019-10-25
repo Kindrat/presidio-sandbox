@@ -1,12 +1,5 @@
 version: '3.7'
 services:
-  redis:
-    image: redis:5.0.6-alpine
-    ports:
-      - 6379:6379
-    volumes:
-      - redis:/data
-
   presidio-analyzer:
     image: mcr.microsoft.com/presidio-analyzer:latest
     ports:
@@ -21,29 +14,16 @@ services:
     environment:
       - GRPC_PORT=3001
 
-  presidio-recognizers-store:
-    depends_on:
-      - redis
-    image: mcr.microsoft.com/presidio-recognizers-store:latest
-    ports:
-      - 3004:3004
-    environment:
-      - GRPC_PORT=3004
-      - REDIS_URL=redis:6379
-
-  presidio-api:
+  presidio-sandbox:
+    image: @project.name@:@project.version@
     depends_on:
       - presidio-analyzer
       - presidio-anonymizer
-      - presidio-recognizers-store
-    image: mcr.microsoft.com/presidio-api:latest
     ports:
       - 8080:8080
     environment:
-      - WEB_PORT=8080
-      - ANALYZER_SVC_ADDRESS=presidio-analyzer:3000
-      - ANONYMIZER_SVC_ADDRESS=presidio-anonymizer:3001
-      - RECOGNIZERS_STORE_SVC_ADDRESS=presidio-recognizers-store:3004
-
-volumes:
-  redis:
+      - APP_SERVER_PORT=8080
+      - ANALYZER_HOST=presidio-analyzer
+      - ANALYZER_PORT=3000
+      - ANONYMIZER_HOST=presidio-anonymizer
+      - ANONYMIZER_PORT=3001

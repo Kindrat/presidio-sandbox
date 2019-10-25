@@ -14,5 +14,5 @@
         <appender-ref ref="STDOUT-ASYNC"/>
     </root>
 
-    <logger name="com.github.kindrat" level="DEBUG"/>
+    <logger name="com.github.kindrat" level="TRACE"/>
 </configuration>
