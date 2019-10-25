@@ -16,6 +16,7 @@ import types.Anonymize.AnonymizeRequest
 import types.AnonymizeServiceGrpc.AnonymizeServiceBlockingStub
 import types.Template.AnalyzeTemplate
 import types.Template.AnonymizeTemplate
+import java.time.Duration
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,9 +27,9 @@ class PresidioServiceImpl(
 
     override fun analyze(request: AnalysisRequest?, observer: StreamObserver<AnalysisReply>?) {
         val text = request?.text ?: throw IllegalArgumentException("Null request")
-        Mono.fromCallable { analysisClient.apply(analyzeRequest(text)) }
+        Mono.defer { Mono.fromCallable { analysisClient.apply(analyzeRequest(text)) } }.log()
+            .retryBackoff(10, Duration.ofSeconds(1))
             .map { anonymizeClient.apply(anonymizeRequest(text, it)) }
-            .retry(10)
             .subscribeOn(Schedulers.elastic())
             .subscribe(
                 {
