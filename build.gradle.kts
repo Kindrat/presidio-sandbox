@@ -122,7 +122,7 @@ tasks {
         doFirst { delete(presidioCacheDir) }
     }
 
-    val extractPresidioProtos by creating(Copy::class) {
+    val extractPresidioProtos by registering(Copy::class) {
         group = "build setup"
         dependsOn(downloadPresidioProtos)
         from(zipTree(downloadPresidioProtos.outputs.files.singleFile).files) {
